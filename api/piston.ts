@@ -1,4 +1,4 @@
-const PISTON_URL = 'https://emkc.org/api/v2/piston';
+const JUDGE0_URL = 'https://ce.judge0.com';
 
 export interface RunResult {
   stdout: string;
@@ -9,26 +9,15 @@ export interface RunResult {
 export interface Language {
   id: string;
   label: string;
-  pistonLanguage: string;
-  version: string;
+  judge0Id: number;
   template: string;
 }
 
 export const LANGUAGES: Language[] = [
   {
-    id: 'javascript',
-    label: 'JavaScript',
-    pistonLanguage: 'javascript',
-    version: '18.15.0',
-    template: `// JavaScript
-console.log("Hello, World!");
-`,
-  },
-  {
     id: 'java',
     label: 'Java',
-    pistonLanguage: 'java',
-    version: '15.0.2',
+    judge0Id: 91,
     template: `public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, World!");
@@ -37,10 +26,17 @@ console.log("Hello, World!");
 `,
   },
   {
+    id: 'javascript',
+    label: 'JavaScript',
+    judge0Id: 97,
+    template: `// JavaScript
+console.log("Hello, World!");
+`,
+  },
+  {
     id: 'c',
     label: 'C',
-    pistonLanguage: 'c',
-    version: '10.2.0',
+    judge0Id: 103,
     template: `#include <stdio.h>
 
 int main() {
@@ -52,8 +48,7 @@ int main() {
   {
     id: 'cpp',
     label: 'C++',
-    pistonLanguage: 'c++',
-    version: '10.2.0',
+    judge0Id: 105,
     template: `#include <iostream>
 using namespace std;
 
@@ -66,8 +61,7 @@ int main() {
   {
     id: 'csharp',
     label: 'C#',
-    pistonLanguage: 'csharp',
-    version: '6.12.0',
+    judge0Id: 51,
     template: `using System;
 
 class Program {
@@ -80,8 +74,7 @@ class Program {
   {
     id: 'python',
     label: 'Python',
-    pistonLanguage: 'python',
-    version: '3.10.0',
+    judge0Id: 100,
     template: `# Python
 print("Hello, World!")
 `,
@@ -89,36 +82,34 @@ print("Hello, World!")
 ];
 
 export async function runCode(language: Language, code: string): Promise<RunResult> {
-  const filename = getFilename(language);
-
-  const res = await fetch(`${PISTON_URL}/execute`, {
+  const res = await fetch(`${JUDGE0_URL}/submissions?wait=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      language: language.pistonLanguage,
-      version: language.version,
-      files: [{ name: filename, content: code }],
+      language_id: language.judge0Id,
+      source_code: code,
     }),
   });
 
-  if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API 오류: ${res.status} — ${body}`);
+  }
 
   const data = await res.json();
-  return {
-    stdout: data.run?.stdout ?? '',
-    stderr: data.run?.stderr ?? '',
-    code: data.run?.code ?? null,
-  };
-}
 
-function getFilename(lang: Language): string {
-  const map: Record<string, string> = {
-    javascript: 'main.js',
-    java: 'Main.java',
-    c: 'main.c',
-    'c++': 'main.cpp',
-    csharp: 'Main.cs',
-    python: 'main.py',
+  const decode = (s: string | null) => {
+    if (!s) return '';
+    try { return atob(s); } catch { return s; }
   };
-  return map[lang.pistonLanguage] ?? 'main.txt';
+
+  const stdout = decode(data.stdout);
+  const stderr = decode(data.stderr);
+  const compileErr = decode(data.compile_output);
+
+  return {
+    stdout,
+    stderr: compileErr || stderr,
+    code: data.status?.id === 3 ? 0 : 1,
+  };
 }
