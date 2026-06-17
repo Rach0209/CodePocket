@@ -81,13 +81,14 @@ print("Hello, World!")
   },
 ];
 
-export async function runCode(language: Language, code: string): Promise<RunResult> {
+export async function runCode(language: Language, code: string, stdin = ''): Promise<RunResult> {
   const res = await fetch(`${JUDGE0_URL}/submissions?wait=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       language_id: language.judge0Id,
       source_code: code,
+      stdin,
     }),
   });
 
