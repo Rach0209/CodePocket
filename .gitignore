@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# claude-configs (별도 레포, junction으로 연결)
+UsersbssDocumentsBSSclaude-configs/
